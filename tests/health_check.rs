@@ -1,5 +1,5 @@
-use std::fmt::format;
 use std::net::TcpListener;
+
 use tokio::spawn;
 
 #[tokio::test]
@@ -24,8 +24,8 @@ fn spawn_app() -> String {
         .local_addr()
         .expect("Failed to retrieve port")
         .port();
-    let server = zero2prod::run(listener).expect("Failed to bind address.");
-    let _ = tokio::spawn(server);
+    let server = zero2prod::server::run(listener).expect("Failed to bind address.");
+    let _ = spawn(server);
     format!("http://{}:{}", ip, port)
 }
 
