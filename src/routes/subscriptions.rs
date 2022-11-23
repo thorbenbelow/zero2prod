@@ -13,7 +13,7 @@ pub async fn subscribe(
     form: web::Form<SubscriptionFormData>,
     conn: web::Data<PgPool>,
 ) -> HttpResponse {
-    sqlx::query!(
+    match sqlx::query!(
         r#"
         INSERT INTO subscriptions (id, email, name, subscribed_at)
         VALUES ($1, $2, $3, $4)
@@ -24,6 +24,9 @@ pub async fn subscribe(
         Utc::now()
     )
     .execute(conn.get_ref())
-    .await;
-    HttpResponse::Ok().finish()
+    .await
+    {
+        Ok(_) => HttpResponse::Ok().finish(),
+        Err(_) => HttpResponse::BadRequest().finish(),
+    }
 }
