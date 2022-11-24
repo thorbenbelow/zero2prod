@@ -1,10 +1,12 @@
 use std::net::TcpListener;
 
+use once_cell::sync::Lazy;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use tokio::spawn;
 use uuid::Uuid;
 
 use zero2prod::configuration::{get_configuration, DatabaseSettings};
+use zero2prod::telemetry::{get_subscriber, init_subscriber};
 
 #[tokio::test]
 async fn health_check_works() {
@@ -21,12 +23,27 @@ async fn health_check_works() {
     assert_eq!(Some(0), response.content_length());
 }
 
+static TRACING: Lazy<()> = Lazy::new(|| {
+    let default_filter_level = "info".to_string();
+    let subscriber_name = "test".to_string();
+
+    if std::env::var("TEST_LOG").is_ok() {
+        let subscriber = get_subscriber(subscriber_name, default_filter_level, std::io::stdout);
+        init_subscriber(subscriber);
+    } else {
+        let subscriber = get_subscriber(subscriber_name, default_filter_level, std::io::sink);
+        init_subscriber(subscriber);
+    }
+});
+
 pub struct TestApp {
     pub address: String,
     pub db_pool: PgPool,
 }
 
 async fn spawn_app() -> TestApp {
+    Lazy::force(&TRACING);
+
     let ip = "127.0.0.1";
     let listener = TcpListener::bind(format!("{}:0", ip)).expect("Failed to bind");
     let mut configuration = get_configuration().expect("Failed to read config");
@@ -41,10 +58,7 @@ async fn spawn_app() -> TestApp {
         zero2prod::server::run(listener, db_pool.clone()).expect("Failed to bind address.");
     let _ = spawn(server);
     let address = format!("http://{}:{}", ip, port);
-    TestApp {
-        address,
-        db_pool: db_pool.clone(),
-    }
+    TestApp { address, db_pool }
 }
 
 pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
