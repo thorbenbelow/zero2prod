@@ -8,21 +8,6 @@ use uuid::Uuid;
 use zero2prod::configuration::{get_configuration, DatabaseSettings};
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
 
-#[tokio::test]
-async fn health_check_works() {
-    let app = spawn_app().await;
-    let client = reqwest::Client::new();
-
-    let response = client
-        .get(format!("{}/health_check", app.address))
-        .send()
-        .await
-        .expect("Failed to execute request.");
-
-    assert!(response.status().is_success());
-    assert_eq!(Some(0), response.content_length());
-}
-
 static TRACING: Lazy<()> = Lazy::new(|| {
     let default_filter_level = "info".to_string();
     let subscriber_name = "test".to_string();
@@ -62,14 +47,16 @@ async fn spawn_app() -> TestApp {
 }
 
 pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
-    let mut connection = PgConnection::connect(&config.connection_string_without_db())
+    let mut connection = PgConnection::connect_with(&config.without_db())
         .await
         .expect("Failed to connect to postgres");
+
     connection
         .execute(format!(r#"Create DATABASE "{}";"#, config.database_name).as_str())
         .await
         .expect("Failed to create db");
-    let db_pool = PgPool::connect(&config.connection_string())
+
+    let db_pool = PgPool::connect_with(config.with_db())
         .await
         .expect("Failed to connect to postgres");
 
@@ -79,6 +66,21 @@ pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
         .expect("Failed to migrate");
 
     db_pool
+}
+
+#[tokio::test]
+async fn health_check_works() {
+    let app = spawn_app().await;
+    let client = reqwest::Client::new();
+
+    let response = client
+        .get(format!("{}/health_check", app.address))
+        .send()
+        .await
+        .expect("Failed to execute request.");
+
+    assert!(response.status().is_success());
+    assert_eq!(Some(0), response.content_length());
 }
 
 #[tokio::test]

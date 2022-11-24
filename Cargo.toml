@@ -23,6 +23,7 @@ tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"] }
 tracing-bunyan-formatter = "0.3.1"
 tracing-log = "0.1.1"
 tracing-actix-web = "0.6"
+serde-aux = "4.1.2"
 
 [dependencies.sqlx]
 version = "0.5.7"
@@ -33,7 +34,8 @@ features = [
     "postgres",
     "uuid",
     "chrono",
-    "migrate"
+    "migrate",
+    "offline"
 ]
 
 [dev-dependencies]
