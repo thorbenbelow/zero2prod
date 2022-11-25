@@ -135,3 +135,34 @@ async fn subscribe_returns_a_400_when_data_is_missing() {
         );
     }
 }
+
+#[tokio::test]
+async fn subscribe_returns_a_400_when_data_is_present_but_invalid() {
+    let app = spawn_app().await;
+    let client = reqwest::Client::new();
+
+    let test_cases = vec![
+        ("name=%20&email=bobbyb%40test.invalid", "invalid name"),
+        ("name=bobbyB&email=bobbybATtest.invalid", "invalid email"),
+        (
+            "name=%20&email=bobbybATtest.invalid",
+            "invalid name and invalid email",
+        ),
+    ];
+    for (body, error) in test_cases {
+        let response = client
+            .post(format!("{}/subscriptions", app.address))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(body)
+            .send()
+            .await
+            .expect("Failed to execute request");
+
+        assert_eq!(
+            400,
+            response.status().as_u16(),
+            "The api did not fail with 400 when the payload was {}",
+            error
+        );
+    }
+}

@@ -4,13 +4,19 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::new_subscriber::NewSubscriber;
-use crate::domain::subscriber_email::SubscriberEmail;
-use crate::domain::subscriber_name::SubscriberName;
 
 #[derive(serde::Deserialize)]
 pub struct SubscriptionFormData {
     name: String,
     email: String,
+}
+
+impl TryFrom<SubscriptionFormData> for NewSubscriber {
+    type Error = String;
+
+    fn try_from(value: SubscriptionFormData) -> Result<Self, Self::Error> {
+        NewSubscriber::parse(value.name, value.email)
+    }
 }
 
 #[allow(clippy::async_yields_async)]
@@ -26,17 +32,12 @@ pub async fn subscribe(
     form: web::Form<SubscriptionFormData>,
     conn: web::Data<PgPool>,
 ) -> HttpResponse {
-    let name = match SubscriberName::parse(form.0.name) {
-        Ok(name) => name,
+    let new_sub = match form.0.try_into() {
+        Ok(new_sub) => new_sub,
         Err(_) => return HttpResponse::BadRequest().finish(),
     };
 
-    let email = match SubscriberEmail::parse(form.0.email) {
-        Ok(email) => email,
-        Err(_) => return HttpResponse::BadRequest().finish(),
-    };
-
-    match insert_subscriber(&NewSubscriber { name, email }, &conn).await {
+    match insert_subscriber(&new_sub, &conn).await {
         Ok(_) => HttpResponse::Ok().finish(),
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
